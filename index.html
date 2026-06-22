@@ -334,10 +334,23 @@
     }
 
     function shareLine() {
-        const resultText = document.getElementById('resultText').value;
-        if (!resultText) { alert('まずは文章を生成してください。'); return; }
-        window.open(`https://line.me/R/share?text=${encodeURIComponent(resultText)}`, '_blank');
+    const resultText = document.getElementById('resultText').value;
+    
+    // 1. テキストがあるか確認
+    if (!resultText) {
+        alert('まずは文章を生成してください。');
+        return;
     }
+
+    // 2. LINE共有用のURLを構築
+    // msg/text/ は、LINEで共有するための公式推奨パスです
+    const baseUrl = 'https://line.me/R/msg/text/';
+    const shareUrl = `${baseUrl}${encodeURIComponent(resultText)}`;
+
+    // 3. ページ移動として処理（Android/iOS共通）
+    // window.openを避け、location.href を使うことでアプリの起動が優先されます
+    location.href = shareUrl;
+}
 </script>
 </body>
 </html>
