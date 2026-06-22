@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>試合速報入力ツール</title>
+    <style>
+        body { font-family: sans-serif; max-width: 650px; margin: 20px auto; padding: 10px; background-color: #f9f9f9; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="text"], input[type="date"], select, textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        .radio-group { display: flex; gap: 15px; }
+        
+        h2 { text-align: center; margin-top: 10px; margin-bottom: 25px; color: #333; }
+
+        .custom-team-input-wrap { margin-top: 8px; display: none; }
+        
+        .score-table-container { overflow-x: auto; margin: 20px 0; }
+        .score-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 14px; }
+        .score-table th, .score-table td { border: 1px solid #ddd; padding: 6px; min-width: 32px; }
+        .score-table th { background-color: #f2f2f2; }
+        .score-input { width: 30px; text-align: center; border: 1px solid #ccc; border-radius: 3px; padding: 4px 2px; font-size: 14px; }
+        .team-label { font-weight: bold; text-align: left; min-width: 80px; }
+        .total-cell { font-weight: bold; background-color: #fffde7; font-size: 16px; min-width: 40px; }
+
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        button { padding: 12px; font-size: 16px; cursor: pointer; border: none; border-radius: 4px; font-weight: bold; }
+        .btn-generate { background-color: #4CAF50; color: white; grid-column: span 2; }
+        .btn-copy { background-color: #008CBA; color: white; }
+        .btn-line { background-color: #06C755; color: white; }
+        .btn-save { background-color: #ff9800; color: white; }
+        .btn-clear { background-color: #f44336; color: white; }
+        
+        textarea { margin-top: 15px; height: 280px; font-family: monospace; font-size: 14px; white-space: pre; background-color: #fff; border: 1px solid #999; }
+        textarea:focus { border-color: #008CBA; outline: none; box-shadow: 0 0 5px rgba(0,140,186,0.3); }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>試合速報入力ツール</h2>
+
+    <div class="form-group">
+        <label>試合日</label>
+        <input type="date" id="matchDate">
+    </div>
+
+    <div class="form-group">
+        <label>試合名</label>
+        <input type="text" id="matchName" placeholder="例：西日本選手権 京都ブロック代表決定戦">
+    </div>
+
+    <div class="form-group">
+        <label>場所</label>
+        <input type="text" id="place" placeholder="例：わかさスタジアム京都">
+    </div>
+
+    <div class="form-group">
+        <label>チーム名（自分たち）</label>
+        <select id="teamNameSelect" onchange="toggleTeamInput()">
+            <option value="丹後">丹後</option>
+            <option value="丹後１年">丹後１年</option>
+            <option value="丹後２年">丹後２年</option>
+            <option value="丹後３年">丹後３年</option>
+            <option value="custom">その他（手入力する）</option>
+        </select>
+        <div id="customTeamInputWrap" class="custom-team-input-wrap">
+            <input type="text" id="teamNameCustom" placeholder="チーム名を手入力してください" oninput="updateScoreLabels()">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>対戦相手</label>
+        <input type="text" id="opponent" placeholder="例：綾部・大阪南シニア">
+    </div>
+
+    <div class="form-group">
+        <label>スコア表の相手名（略称）</label>
+        <input type="text" id="opponentShort" placeholder="例：綾部" oninput="updateScoreLabels()">
+    </div>
+
+    <div class="form-group">
+        <label>自分たちの攻守</label>
+        <div class="radio-group">
+            <label><input type="radio" name="batting" value="先攻" id="battingTop" checked onchange="switchBatting('先攻')"> 先攻</label>
+            <label><input type="radio" name="batting" value="後攻" id="battingBottom" onchange="switchBatting('後攻')"> 後攻</label>
+        </div>
+    </div>
+
+    <label>スコア入力</label>
+    <div class="score-table-container">
+        <table class="score-table">
+            <thead>
+                <tr>
+                    <th>チーム</th>
+                    <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th><th>11</th><th>12</th>
+                    <th>R</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td id="topTeamLabel" class="team-label">先攻</td>
+                    <td><input type="text" class="score-input top-score" id="top_1" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input top-score" id="top_2" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input top-score" id="top_3" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input top-score" id="top_4" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input top-score" id="top_5" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input top-score" id="top_6" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input top-score" id="top_7" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input top-score" id="top_8" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input top-score" id="top_9" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input top-score" id="top_10" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input top-score" id="top_11" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input top-score" id="top_12" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td id="topTotal" class="total-cell">0</td>
+                </tr>
+                <tr>
+                    <td id="bottomTeamLabel" class="team-label">後攻</td>
+                    <td><input type="text" class="score-input bottom-score" id="bottom_1" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input bottom-score" id="bottom_2" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input bottom-score" id="bottom_3" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input bottom-score" id="bottom_4" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input bottom-score" id="bottom_5" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input bottom-score" id="bottom_6" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input bottom-score" id="bottom_7" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input bottom-score" id="bottom_8" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input bottom-score" id="bottom_9" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input bottom-score" id="bottom_10" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input bottom-score" id="bottom_11" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td><input type="text" class="score-input bottom-score" id="bottom_12" inputmode="numeric" pattern="[0-9Xx]*" oninput="calculateTotal()"></td>
+                    <td id="bottomTotal" class="total-cell">0</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn-generate" onclick="generateText()">文章生成</button>
+        <button class="btn-copy" onclick="copyText()">コピー</button>
+        <button class="btn-line" onclick="shareLine()">LINE共有</button>
+        <button class="btn-save" onclick="saveData()">入力内容を保存</button>
+        <button class="btn-clear" onclick="showClearOptions()">クリア</button>
+    </div>
+
+    <textarea id="resultText" placeholder="ここに生成された文章が表示されます。
+生成後、自由にここを調整できます。"></textarea>
+</div>
+
+<script>
+    const maxInnings = 12;
+    let currentBatting = "先攻"; 
+
+    window.onload = function() {
+        loadData();
+        updateScoreLabels();
+    };
+
+    function saveData() {
+        const data = {
+            matchDate: document.getElementById('matchDate').value,
+            matchName: document.getElementById('matchName').value,
+            place: document.getElementById('place').value,
+            teamNameSelect: document.getElementById('teamNameSelect').value,
+            teamNameCustom: document.getElementById('teamNameCustom').value,
+            opponent: document.getElementById('opponent').value,
+            opponentShort: document.getElementById('opponentShort').value,
+            batting: document.querySelector('input[name="batting"]:checked').value,
+            topScores: Array.from(document.getElementsByClassName('top-score')).map(el => el.value),
+            bottomScores: Array.from(document.getElementsByClassName('bottom-score')).map(el => el.value)
+        };
+        localStorage.setItem('matchReportData', JSON.stringify(data));
+        alert('入力内容を保存しました！');
+    }
+
+    function loadData() {
+        const saved = localStorage.getItem('matchReportData');
+        if (!saved) return;
+        const data = JSON.parse(saved);
+        
+        document.getElementById('matchDate').value = data.matchDate || '';
+        document.getElementById('matchName').value = data.matchName || '';
+        document.getElementById('place').value = data.place || '';
+        document.getElementById('teamNameSelect').value = data.teamNameSelect || '丹後';
+        document.getElementById('teamNameCustom').value = data.teamNameCustom || '';
+        document.getElementById('opponent').value = data.opponent || '';
+        document.getElementById('opponentShort').value = data.opponentShort || '';
+        
+        document.querySelector(`input[name="batting"][value="${data.batting}"]`).checked = true;
+        currentBatting = data.batting;
+        
+        const topInputs = document.getElementsByClassName('top-score');
+        data.topScores.forEach((val, i) => { if(topInputs[i]) topInputs[i].value = val; });
+        const bottomInputs = document.getElementsByClassName('bottom-score');
+        data.bottomScores.forEach((val, i) => { if(bottomInputs[i]) bottomInputs[i].value = val; });
+        
+        toggleTeamInput();
+        calculateTotal();
+        updateScoreLabels();
+    }
+
+    // --- クリア処理の修正 ---
+    function showClearOptions() {
+        if (confirm("【OK】を押すと「スコアのみ」をクリアします。\n【キャンセル】を押すと「すべて（項目含む全データ）」をクリアします。")) {
+            // スコアのみクリア
+            document.querySelectorAll('.score-input').forEach(input => input.value = '');
+            document.getElementById('resultText').value = '';
+            calculateTotal();
+            alert('スコアをクリアしました。');
+        } else {
+            // すべてクリア
+            if (confirm("入力した内容をすべて消去しますか？（保存データも削除されます）")) {
+                localStorage.removeItem('matchReportData');
+                location.reload();
+            }
+        }
+    }
+
+    function toggleTeamInput() {
+        const selectValue = document.getElementById('teamNameSelect').value;
+        const customWrap = document.getElementById('customTeamInputWrap');
+        customWrap.style.display = (selectValue === 'custom') ? 'block' : 'none';
+        updateScoreLabels();
+    }
+
+    function getActiveTeamName() {
+        const selectElement = document.getElementById('teamNameSelect');
+        return (selectElement.value === 'custom') ? (document.getElementById('teamNameCustom').value || '自分たち') : selectElement.value;
+    }
+
+    function switchBatting(newBatting) {
+        if (currentBatting !== newBatting) {
+            for (let i = 1; i <= maxInnings; i++) {
+                const topInput = document.getElementById(`top_${i}`);
+                const bottomInput = document.getElementById(`bottom_${i}`);
+                const temp = topInput.value;
+                topInput.value = bottomInput.value;
+                bottomInput.value = temp;
+            }
+            currentBatting = newBatting;
+        }
+        updateScoreLabels();
+        calculateTotal();
+    }
+
+    function updateScoreLabels() {
+        const teamName = getActiveTeamName();
+        const opponentShort = document.getElementById('opponentShort').value || '相手';
+        const batting = document.querySelector('input[name="batting"]:checked').value;
+        if (batting === "先攻") {
+            document.getElementById('topTeamLabel').innerText = teamName;
+            document.getElementById('bottomTeamLabel').innerText = opponentShort;
+        } else {
+            document.getElementById('topTeamLabel').innerText = opponentShort;
+            document.getElementById('bottomTeamLabel').innerText = teamName;
+        }
+    }
+
+    function calculateTotal() {
+        document.getElementById('topTotal').innerText = sumInnings('top-score');
+        document.getElementById('bottomTotal').innerText = sumInnings('bottom-score');
+    }
+
+    function sumInnings(className) {
+        let sum = 0;
+        const inputs = document.getElementsByClassName(className);
+        let hasValue = false;
+        for (let i = 0; i < inputs.length; i++) {
+            if (inputs[i].value !== "") {
+                hasValue = true;
+                let val = parseInt(inputs[i].value, 10);
+                if (!isNaN(val)) sum += val;
+            }
+        }
+        return hasValue ? sum : 0;
+    }
+
+    function formatJapaneseDate(dateStr) {
+        if (!dateStr) return "";
+        const dateObj = new Date(dateStr);
+        if (isNaN(dateObj.getTime())) return dateStr;
+        const year = dateObj.getFullYear();
+        const month = dateObj.getMonth() + 1;
+        const date = dateObj.getDate();
+        const dayOfWeek = ["日", "月", "火", "水", "木", "金", "土"][dateObj.getDay()];
+        return `${year}年${month}月${date}日(${dayOfWeek})`;
+    }
+
+    function generateText() {
+        const matchDate = document.getElementById('matchDate').value;
+        const matchName = document.getElementById('matchName').value;
+        const place = document.getElementById('place').value;
+        const opponent = document.getElementById('opponent').value;
+        if(!matchDate || !opponent) { alert('試合日と対戦相手は必須入力です。'); return; }
+        const formattedDate = formatJapaneseDate(matchDate);
+        let lastInning = 0;
+        for (let i = 1; i <= maxInnings; i++) {
+            if (document.getElementById(`top_${i}`).value !== "" || document.getElementById(`bottom_${i}`).value !== "") lastInning = i;
+        }
+        const targetInning = Math.max(lastInning, 5);
+        let topName = document.getElementById('topTeamLabel').innerText;
+        let bottomName = document.getElementById('bottomTeamLabel').innerText;
+        const topR = document.getElementById('topTotal').innerText;
+        const bottomR = document.getElementById('bottomTotal').innerText;
+        let topScoreRow = topName + " ";
+        let bottomScoreRow = bottomName + " ";
+        for (let i = 1; i <= targetInning; i++) {
+            topScoreRow += (document.getElementById(`top_${i}`).value || '-') + " ";
+            bottomScoreRow += (document.getElementById(`bottom_${i}`).value || '-') + " ";
+        }
+        topScoreRow += "- " + topR;
+        bottomScoreRow += "- " + bottomR;
+        let text = `運営役より下記の試合結果を報告します。\n` +
+                   `■試合日\n` +
+                   `${formattedDate}\n\n` +
+                   `■試合名\n` +
+                   ` ${matchName}\n\n` +
+                   `■場所\n` +
+                   ` ${place}\n\n` +
+                   `■対戦相手\n` +
+                   ` ${opponent}\n\n` +
+                   `${topScoreRow}\n` +
+                   `${bottomScoreRow}\n\n` +
+                   `よろしくお願いいたします。`;
+        document.getElementById('resultText').value = text;
+    }
+
+    function copyText() {
+        const resultText = document.getElementById('resultText');
+        if (!resultText.value) { alert('まずは文章を生成してください。'); return; }
+        resultText.select();
+        document.execCommand('copy');
+        alert('報告文をクリップボードにコピーしました！');
+    }
+
+    function shareLine() {
+        const resultText = document.getElementById('resultText').value;
+        if (!resultText) { alert('まずは文章を生成してください。'); return; }
+        window.open(`https://line.me/R/share?text=${encodeURIComponent(resultText)}`, '_blank');
+    }
+</script>
+</body>
+</html>
